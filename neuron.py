@@ -6,11 +6,9 @@ class Neuron:
         self.potential = 0.0
         self.firing_energy = 0.0
         self.threshold = 1.0
-        self.resting_potential = 10.0
+        self.resting_potential = 0.0
         self.refractory_period = 2
         self.refractory_counter = 0
-        self.min_potential = -70.0
-        self.max_potential = 40.0
         self.leak_factor = leak_rate
         self.fired = False
 
@@ -28,12 +26,8 @@ class Neuron:
 
         input_current += random.uniform(0, 0.1)
         self.potential += input_current
-        self.potential = max(self.min_potential, min(self.max_potential, self.potential))
-        
+
         if self.potential >= self.threshold:
             self.firing_energy = self.potential
-            self.min_firing_energy = min(self.min_firing_energy, self.firing_energy)
-            self.max_firing_energy = max(self.max_firing_energy, self.firing_energy)
-            self.global_energy_levels.append(self.firing_energy)
             self.fired = True
             self.reset_potential()

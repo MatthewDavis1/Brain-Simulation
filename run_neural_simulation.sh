@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Output directory
-OUTPUT_DIR="examples/modular_3"
+OUTPUT_DIR="examples/modular_5"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -17,7 +17,7 @@ LEARNING_RATE=0.5
 LEAK_RATE=0.95
 
 # New parameters for driving inputs
-NUM_DRIVERS=0
+NUM_DRIVERS=2
 DRIVER_POTENTIAL=10
 
 # Write parameters to file

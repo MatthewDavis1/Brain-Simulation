@@ -12,6 +12,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.collections import LineCollection
+from matplotlib.gridspec import GridSpec
 
 from neuron import Neuron
 from learning_rules import LearningRuleType
@@ -94,7 +95,6 @@ class Simulation:
 
             input_current += random.uniform(-5, 5)
             updated_potential += input_current
-            updated_potential = max(neuron.min_potential, min(neuron.max_potential, updated_potential))
 
             new_potentials[idx] = updated_potential
 
@@ -235,7 +235,12 @@ def main():
             f.write('\n'.join(stats_output))
     
     if not args.no_plot:
-        fig, ax = plt.subplots(figsize=(10, 8))
+        # Create figure with GridSpec to arrange subplots
+        fig = plt.figure(figsize=(15, 10))
+        gs = GridSpec(2, 1, height_ratios=[2, 1], hspace=0.3)
+        
+        # Network visualization subplot
+        ax_network = fig.add_subplot(gs[0])
         
         pos = nx.spring_layout(sim.network.graph, seed=42)
         
@@ -250,36 +255,60 @@ def main():
         edge_lines = [(pos[u], pos[v]) for u, v in edges]
         lc = LineCollection(edge_lines, colors=edge_colors, linewidths=[0.5 + 4.5 * nw for nw in normalized_weights],
                            alpha=edge_transparency)
-        ax.add_collection(lc)
+        ax_network.add_collection(lc)
 
         initial_potentials = sim.potential_history[0]
         nodes = sim.network.graph.nodes()
-        scatter = ax.scatter(
+        scatter = ax_network.scatter(
             [pos[node][0] for node in nodes],
             [pos[node][1] for node in nodes],
             c=initial_potentials,
             cmap='bwr',
-            vmin=sim.neurons[0].min_potential,
-            vmax=sim.neurons[0].max_potential,
+            vmin=-100,
+            vmax=100,
             s=500
         )
 
-        ax.set_xlim(min(x for x, y in pos.values()) - 0.1, max(x for x, y in pos.values()) + 0.1)
-        ax.set_ylim(min(y for x, y in pos.values()) - 0.1, max(y for x, y in pos.values()) + 0.1)
-        ax.set_title('Time Step: 0')
-        ax.axis('off')
+        ax_network.set_xlim(min(x for x, y in pos.values()) - 0.1, max(x for x, y in pos.values()) + 0.1)
+        ax_network.set_ylim(min(y for x, y in pos.values()) - 0.1, max(y for x, y in pos.values()) + 0.1)
+        ax_network.set_title('Network State - Time Step: 0')
+        ax_network.axis('off')
 
-        cbar = plt.colorbar(scatter, ax=ax)
+        cbar = plt.colorbar(scatter, ax=ax_network)
         cbar.set_label('Neuron Potential (mV)')
+        
+        # Raster plot subplot
+        ax_raster = fig.add_subplot(gs[1])
+        firing_data = np.zeros((len(sim.neurons), len(sim.potential_history)))
+        
+        # Collect firing data
+        for t in range(len(sim.potential_history)):
+            for n in range(len(sim.neurons)):
+                # A neuron fired if its potential was reset to resting potential
+                if t > 0 and sim.potential_history[t][n] < sim.potential_history[t-1][n]:
+                    firing_data[n, t] = 1
+        
+        scatter_raster = ax_raster.scatter([], [], c='black', s=1)
+        ax_raster.set_xlim(0, len(sim.potential_history))
+        ax_raster.set_ylim(-1, len(sim.neurons))
+        ax_raster.set_xlabel('Time Step')
+        ax_raster.set_ylabel('Neuron ID')
+        ax_raster.set_title('Firing Activity')
 
         def update(frame):
             if frame >= len(sim.potential_history):
-                return scatter,
+                return scatter, scatter_raster
             
+            # Update network visualization
             potentials = sim.potential_history[frame]
             scatter.set_array(np.array(potentials))
-            ax.set_title(f'Time Step: {frame}')
-            return scatter,
+            ax_network.set_title(f'Network State - Time Step: {frame}')
+            
+            # Update raster plot
+            firing_times, firing_neurons = np.where(firing_data[:, :frame+1] == 1)
+            scatter_raster.set_offsets(np.column_stack((firing_neurons, firing_neurons)))
+            
+            return scatter, scatter_raster
 
         anim = FuncAnimation(
             fig, 
