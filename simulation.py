@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 from matplotlib.animation import FuncAnimation
 import os
+import matplotlib.animation
 
 class ConnectionType(Enum):
     RANDOM = 1
@@ -401,72 +402,77 @@ if __name__ == "__main__":
     # Only create the animation
     def create_potential_animation(sim):
         fig, ax = plt.subplots(figsize=(10, 8))
-        pos = nx.spring_layout(sim.network.graph)
         
-        # Get edge weights for scaling
-        weights = [sim.network.graph[u][v]['weight'] for u, v in sim.network.graph.edges()]
-        max_weight = max(weights)
-        min_weight = min(weights)
+        # Precompute the positions of nodes
+        pos = nx.spring_layout(sim.network.graph, seed=42)  # Fixed seed for consistency
         
-        # Update file path to use output directory
-        potentials_file = os.path.join(sim.output_dir, 'neuron_potentials.csv')
-        with open(potentials_file, 'w') as f:
-            # Write header
-            f.write('Timestep,' + ','.join([f'Neuron_{i}' for i in range(len(sim.network.graph.nodes()))]) + '\n')
-            
-            # Write data for each timestep
-            for t, potentials in enumerate(sim.potential_history):
-                f.write(f'{t},' + ','.join([f'{p:.4f}' for p in potentials]) + '\n')
-        
+        # Draw edges once using LineCollection for better performance
+        edges = list(sim.network.graph.edges())
+        edge_weights = [sim.network.graph[u][v]['weight'] for u, v in edges]
+        max_weight = max(edge_weights) if edge_weights else 1
+        min_weight = min(edge_weights) if edge_weights else 0.5
+        normalized_weights = [(w - min_weight) / (max_weight - min_weight) for w in edge_weights]
+        edge_colors = ['gray'] * len(edges)
+        edge_transparency = 0.6
+
+        # Create a LineCollection for edges
+        from matplotlib.collections import LineCollection
+        edge_lines = [(pos[u], pos[v]) for u, v in edges]
+        lc = LineCollection(edge_lines, colors=edge_colors, linewidths=[0.5 + 4.5 * nw for nw in normalized_weights],
+                           alpha=edge_transparency)
+        ax.add_collection(lc)
+
+        # Prepare initial node colors
+        initial_potentials = sim.potential_history[0]
+        nodes = sim.network.graph.nodes()
+        scatter = ax.scatter(
+            [pos[node][0] for node in nodes],
+            [pos[node][1] for node in nodes],
+            c=initial_potentials,
+            cmap='bwr',  # Blue-White-Red colormap
+            vmin=sim.neurons[0].min_potential,
+            vmax=sim.neurons[0].max_potential,
+            s=500
+        )
+
+        ax.set_xlim(min(x for x, y in pos.values()) - 0.1, max(x for x, y in pos.values()) + 0.1)
+        ax.set_ylim(min(y for x, y in pos.values()) - 0.1, max(y for x, y in pos.values()) + 0.1)
+        ax.set_title('Time Step: 0')
+        ax.axis('off')  # Hide axes for better visualization
+
+        # Add a color bar
+        cbar = plt.colorbar(scatter, ax=ax)
+        cbar.set_label('Neuron Potential (mV)')
+
         def update(frame):
-            ax.clear()
+            if frame >= len(sim.potential_history):
+                return scatter,
+            
             potentials = sim.potential_history[frame]
-            
-            # Create color map (blue for negative, white for 0, red for positive)
-            colors = []
-            for potential in potentials:
-                if potential <= 0:
-                    # Blue to white gradient
-                    intensity = min(1.0, abs(potential) / abs(sim.neurons[0].min_potential))  # Normalize against min_potential
-                    colors.append((1-intensity, 1-intensity, 1))
-                else:
-                    # White to red gradient
-                    intensity = min(1.0, potential / sim.neurons[0].max_potential)  # Normalize against max_potential
-                    colors.append((1, 1-intensity, 1-intensity))
-            
-            # Draw edges with width based on weight
-            edge_widths = []
-            for (u, v) in sim.network.graph.edges():
-                weight = sim.network.graph[u][v]['weight']
-                # Avoid division by zero by checking if all weights are the same
-                if max_weight == min_weight:
-                    width = 2.5  # Use a default middle value
-                else:
-                    width = 0.5 + 4.5 * (weight - min_weight) / (max_weight - min_weight)
-                edge_widths.append(width)
-            
-            nx.draw(sim.network.graph, pos,
-                   node_color=colors,
-                   node_size=500,
-                   with_labels=True,
-                   edge_color='gray',
-                   width=edge_widths,  # Add varying edge widths
-                   alpha=0.6,
-                   ax=ax)
-            
+            scatter.set_array(np.array(potentials))
             ax.set_title(f'Time Step: {frame}')
-        
+            return scatter,
+
         anim = FuncAnimation(
             fig, 
             update,
             frames=len(sim.potential_history),
-            interval=200,  # 200ms between frames
-            repeat=True
+            interval=50,  # Reduced interval for faster animation
+            blit=True
         )
+
+        # Choose a faster writer if available
+        try:
+            Writer = matplotlib.animation.FFMpegWriter
+            writer = Writer(fps=20, metadata=dict(artist='Me'), bitrate=1800)
+            animation_file = os.path.join(sim.output_dir, 'neural_activity.mp4')
+            anim.save(animation_file, writer=writer)
+        except Exception as e:
+            print("FFMpegWriter not available, falling back to pillow. Install ffmpeg for better performance.")
+            animation_file = os.path.join(sim.output_dir, 'neural_activity.gif')
+            anim.save(animation_file, writer='pillow')
         
-        # Update animation save path
-        animation_file = os.path.join(sim.output_dir, 'neural_activity.gif')
-        anim.save(animation_file, writer='pillow')
+        print(f"Animation saved to {animation_file}")
         plt.close()
     
     create_potential_animation(sim)
