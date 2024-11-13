@@ -174,7 +174,8 @@ class Network:
 
 class Simulation:
     def __init__(self, N, connection_type, learning_rule_type=LearningRuleType.HEBBIAN, 
-                 init_potential_mean=0.5, init_potential_std=0.2, output_dir='output', leak_rate=0.95):
+                 init_potential_mean=0.5, init_potential_std=0.2, output_dir='output', 
+                 leak_rate=0.95, num_drivers=0, driver_potential=1.0):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
@@ -197,6 +198,11 @@ class Simulation:
         self.hubs = self.identify_hubs()
         self.network_metrics = self.network.get_network_metrics()
         
+        self.num_drivers = num_drivers
+        self.driver_potential = driver_potential
+        # Randomly select neurons to be drivers
+        self.driver_neurons = random.sample(range(N), num_drivers) if num_drivers > 0 else []
+        
         self.record_potentials()
 
     def record_potentials(self):
@@ -217,6 +223,11 @@ class Simulation:
         fired_neurons = []
 
         for idx, neuron in enumerate(self.neurons):
+            # If this is a driver neuron, add constant input
+            if idx in self.driver_neurons:
+                new_potentials[idx] += self.driver_potential
+                continue
+
             if fired_previous[idx]:
                 # Neuron was firing in the previous step; handle refractory period
                 if neuron.refractory_counter > 0:
@@ -293,7 +304,15 @@ class Simulation:
             "num_distinct_hubs": len(self.hubs),
             "network_metrics": self.network_metrics
         }
+        self.save_potential_history()
         return stats
+
+    def save_potential_history(self):
+        """Save the neuron potential history to a CSV file."""
+        df = pd.DataFrame(self.potential_history)
+        df.insert(0, 'Timestep', range(len(self.potential_history)))
+        output_file = self.output_dir / 'neuron_potentials.csv'
+        df.to_csv(output_file, index=False)
 
 def main():
     parser = argparse.ArgumentParser(description='Neural Network Simulation with LIF Neurons')
@@ -319,6 +338,10 @@ def main():
                       help='Output file name for statistics (optional)')
     parser.add_argument('--leak-rate', type=float, default=0.95,
                         help='Leak rate for neuron potential decay (default: 0.95)')
+    parser.add_argument('--num-drivers', type=int, default=0,
+                      help='Number of driving input neurons (default: 0)')
+    parser.add_argument('--driver-potential', type=float, default=1.0,
+                      help='Constant potential added to driver neurons each timestep (default: 1.0)')
     
     args = parser.parse_args()
     
@@ -339,7 +362,9 @@ def main():
         init_potential_mean=args.init_mean,
         init_potential_std=args.init_std,
         output_dir=args.output_dir,
-        leak_rate=args.leak_rate
+        leak_rate=args.leak_rate,
+        num_drivers=args.num_drivers,
+        driver_potential=args.driver_potential
     )
     
     sim.network.learning_rule.learning_rate = args.learning_rate

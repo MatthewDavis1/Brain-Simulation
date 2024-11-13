@@ -14,7 +14,11 @@ LEARNING_RULE="hebbian"
 INIT_POTENTIAL_MEAN=50
 INIT_POTENTIAL_STD=10
 LEARNING_RATE=0.01
-LEAK_RATE=0.95
+LEAK_RATE=0.8
+
+# New parameters for driving inputs
+NUM_DRIVERS=2
+DRIVER_POTENTIAL=100
 
 # Write parameters to file
 echo "Writing simulation parameters..."
@@ -27,6 +31,8 @@ INIT_POTENTIAL_MEAN=$INIT_POTENTIAL_MEAN
 INIT_POTENTIAL_STD=$INIT_POTENTIAL_STD
 LEARNING_RATE=$LEARNING_RATE
 LEAK_RATE=$LEAK_RATE
+NUM_DRIVERS=$NUM_DRIVERS
+DRIVER_POTENTIAL=$DRIVER_POTENTIAL
 EOF
 
 # Run simulation
@@ -40,6 +46,8 @@ python3 simulation.py \
     --init-std $INIT_POTENTIAL_STD \
     --learning-rate $LEARNING_RATE \
     --leak-rate $LEAK_RATE \
+    --num-drivers $NUM_DRIVERS \
+    --driver-potential $DRIVER_POTENTIAL \
     --output-dir "$OUTPUT_DIR" \
     --stats-file "simulation_stats.txt"
 
