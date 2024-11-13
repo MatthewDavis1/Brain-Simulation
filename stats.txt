@@ -1,0 +1,13 @@
+Simulation Statistics:
+Total Time-Steps: 100
+Min Firing Energy: 71.0085
+Max Firing Energy: 71.8124
+Number of Global Energy Levels: 10
+Number of Distinct Hubs: 1
+
+Network Metrics:
+Clustering Coefficient: 0.3706
+Average Path Length: 1.4976
+Network Density: 0.5024
+Degree Assortativity: 0.0062
+Average Degree: 49.2400
