@@ -28,7 +28,7 @@ class Neuron:
         self.potential = 0.0
         self.firing_energy = 0.0
         self.threshold = 1.0
-        self.resting_potential = -70.0
+        self.resting_potential = 10.0
         self.refractory_period = 2
         self.refractory_counter = 0
         self.min_potential = -70.0
