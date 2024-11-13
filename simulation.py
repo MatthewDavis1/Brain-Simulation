@@ -9,10 +9,12 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 from matplotlib.animation import FuncAnimation
+import os
 
 class ConnectionType(Enum):
     RANDOM = 1
     SMALL_WORLD = 2
+    MODULAR = 3
 
 class Neuron:
     def __init__(self, neuron_id):
@@ -131,6 +133,43 @@ class Network:
                     node1 = random.choice(list(components[idx]))
                     node2 = random.choice(list(components[idx+1]))
                     G.add_edge(node1, node2, weight=random.uniform(0.5, 1.0))
+        elif self.connection_type == ConnectionType.MODULAR:
+            G = nx.DiGraph()
+            G.add_nodes_from(range(self.N))
+            
+            # Parameters for modular network
+            num_modules = min(4, self.N // 10)  # Number of modules (max 4, min 10 neurons per module)
+            neurons_per_module = self.N // num_modules
+            within_module_p = 0.7  # High connectivity within modules
+            
+            # Create modules with high internal connectivity
+            for module in range(num_modules):
+                start_idx = module * neurons_per_module
+                end_idx = start_idx + neurons_per_module if module < num_modules - 1 else self.N
+                
+                # Create connections within module
+                module_neurons = list(range(start_idx, end_idx))
+                for i in module_neurons:
+                    for j in module_neurons:
+                        if i != j and random.random() < within_module_p:
+                            G.add_edge(i, j, weight=random.uniform(0.5, 1.0))
+                
+                # Create single connection to another module
+                if module < num_modules - 1:  # Connect to next module
+                    source = random.choice(module_neurons)
+                    target_module = module + 1
+                    target_start = target_module * neurons_per_module
+                    target_end = target_start + neurons_per_module
+                    target = random.randint(target_start, target_end-1)
+                    G.add_edge(source, target, weight=random.uniform(0.5, 1.0))
+            
+            # Ensure the graph is connected
+            if not nx.is_strongly_connected(G):
+                components = list(nx.strongly_connected_components(G))
+                for idx in range(len(components)-1):
+                    node1 = random.choice(list(components[idx]))
+                    node2 = random.choice(list(components[idx+1]))
+                    G.add_edge(node1, node2, weight=random.uniform(0.5, 1.0))
         else:
             raise ValueError("Unsupported connection type")
         
@@ -159,7 +198,10 @@ class Network:
 
 class Simulation:
     def __init__(self, N, connection_type, learning_rule_type=LearningRuleType.HEBBIAN, 
-                 init_potential_mean=0.5, init_potential_std=0.2):
+                 init_potential_mean=0.5, init_potential_std=0.2, output_dir='output'):
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)  # Create output directory if it doesn't exist
+        
         self.network = Network(N, connection_type, learning_rule_type)
         self.neurons = [Neuron(i) for i in range(N)]
         
@@ -281,25 +323,30 @@ if __name__ == "__main__":
                       help='Number of neurons in the network (default: 100)')
     parser.add_argument('-t', '--timesteps', type=int, default=1000,
                       help='Number of simulation timesteps (default: 1000)')
-    parser.add_argument('-c', '--connection', type=str, choices=['random', 'small_world'],
+    parser.add_argument('-c', '--connection', type=str, choices=['random', 'small_world', 'modular'],
                       default='random', help='Type of network connection (default: random)')
     parser.add_argument('-l', '--learning', type=str, choices=['hebbian'],
                       default='hebbian', help='Type of learning rule (default: hebbian)')
     parser.add_argument('--no-plot', action='store_true',
                       help='Disable network visualization')
-    parser.add_argument('-o', '--output', type=str,
-                      help='Output file for statistics (optional)')
+    parser.add_argument('-o', '--output-dir', type=str, default='output',
+                      help='Directory for output files (default: output)')
     parser.add_argument('--init-mean', type=float, default=0.5,
                       help='Mean of initial potential distribution (default: 0.5)')
     parser.add_argument('--init-std', type=float, default=0.2,
                       help='Standard deviation of initial potential distribution (default: 0.2)')
+    parser.add_argument('--learning-rate', type=float, default=0.01,
+                      help='Learning rate for synaptic weight updates (default: 0.01)')
+    parser.add_argument('--stats-file', type=str,
+                      help='Output file name for statistics (optional)')
     
     args = parser.parse_args()
     
     # Convert connection type string to enum
     connection_map = {
         'random': ConnectionType.RANDOM,
-        'small_world': ConnectionType.SMALL_WORLD
+        'small_world': ConnectionType.SMALL_WORLD,
+        'modular': ConnectionType.MODULAR
     }
     connection_type = connection_map[args.connection]
     
@@ -316,8 +363,13 @@ if __name__ == "__main__":
         connection_type, 
         learning_rule_type,
         init_potential_mean=args.init_mean,
-        init_potential_std=args.init_std
+        init_potential_std=args.init_std,
+        output_dir=args.output_dir
     )
+    
+    # Update learning rate
+    sim.network.learning_rule.learning_rate = args.learning_rate
+    
     stats = sim.run_simulation(total_steps=args.timesteps)
     
     # Print statistics
@@ -328,6 +380,7 @@ if __name__ == "__main__":
         f"Max Firing Energy: {stats['max_firing_energy']:.4f}",
         f"Number of Global Energy Levels: {stats['num_global_energy_levels']}",
         f"Number of Distinct Hubs: {stats['num_distinct_hubs']}",
+        f"Learning Rate: {args.learning_rate}",
         "\nNetwork Metrics:",
         f"Clustering Coefficient: {stats['network_metrics']['clustering_coefficient']:.4f}",
         f"Average Path Length: {stats['network_metrics']['average_path_length']:.4f}",
@@ -340,8 +393,9 @@ if __name__ == "__main__":
     print('\n'.join(stats_output))
     
     # Write to file if specified
-    if args.output:
-        with open(args.output, 'w') as f:
+    if args.stats_file:
+        stats_file = os.path.join(args.output_dir, args.stats_file)
+        with open(stats_file, 'w') as f:
             f.write('\n'.join(stats_output))
     
     # Only create the animation
@@ -354,9 +408,9 @@ if __name__ == "__main__":
         max_weight = max(weights)
         min_weight = min(weights)
         
-        # Add this before the animation creation
-        # Save neuron potentials to file
-        with open('neuron_potentials.csv', 'w') as f:
+        # Update file path to use output directory
+        potentials_file = os.path.join(sim.output_dir, 'neuron_potentials.csv')
+        with open(potentials_file, 'w') as f:
             # Write header
             f.write('Timestep,' + ','.join([f'Neuron_{i}' for i in range(len(sim.network.graph.nodes()))]) + '\n')
             
@@ -410,8 +464,9 @@ if __name__ == "__main__":
             repeat=True
         )
         
-        # Save animation
-        anim.save('neural_activity.gif', writer='pillow')
+        # Update animation save path
+        animation_file = os.path.join(sim.output_dir, 'neural_activity.gif')
+        anim.save(animation_file, writer='pillow')
         plt.close()
     
     create_potential_animation(sim)

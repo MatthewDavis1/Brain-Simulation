@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# Output directory
+OUTPUT_DIR="output"
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_DIR"
+
+# Simulation parameters
+NUM_NEURONS=20
+TIMESTEPS=100
+CONNECTION_TYPE="modular"  # Options: random, small_world, modular
+LEARNING_RULE="hebbian"
+INIT_POTENTIAL_MEAN=50
+INIT_POTENTIAL_STD=10
+LEARNING_RATE=0.01
+
+# Write parameters to file
+echo "Writing simulation parameters..."
+cat << EOF > "$OUTPUT_DIR/parameters.txt"
+NUM_NEURONS=$NUM_NEURONS
+TIMESTEPS=$TIMESTEPS
+CONNECTION_TYPE=$CONNECTION_TYPE
+LEARNING_RULE=$LEARNING_RULE
+INIT_POTENTIAL_MEAN=$INIT_POTENTIAL_MEAN
+INIT_POTENTIAL_STD=$INIT_POTENTIAL_STD
+LEARNING_RATE=$LEARNING_RATE
+EOF
+
+# Run simulation
+echo "Starting neural network simulation..."
+python3 simulation.py \
+    --neurons $NUM_NEURONS \
+    --timesteps $TIMESTEPS \
+    --connection $CONNECTION_TYPE \
+    --learning $LEARNING_RULE \
+    --init-mean $INIT_POTENTIAL_MEAN \
+    --init-std $INIT_POTENTIAL_STD \
+    --learning-rate $LEARNING_RATE \
+    --output-dir "$OUTPUT_DIR" \
+    --stats-file "simulation_stats.txt"
+
+# Check if simulation was successful
+if [ $? -ne 0 ]; then
+    echo "Simulation failed!"
+    exit 1
+fi
+
+echo "Simulation complete. Starting analysis..."
+
+# Run analysis on the generated data
+python3 analysis.py \
+    "$OUTPUT_DIR/neuron_potentials.csv" \
+    --output-dir "$OUTPUT_DIR"
+
+# Check if analysis was successful
+if [ $? -ne 0 ]; then
+    echo "Analysis failed!"
+    exit 1
+fi
+
+echo "Analysis complete. Results are available in $OUTPUT_DIR/"
+echo "Generated files:"
+ls -l "$OUTPUT_DIR" 
