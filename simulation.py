@@ -35,9 +35,8 @@ class Simulation:
             )
         
         self.time_steps = 0
-        self.min_firing_energy = float('inf')
-        self.max_firing_energy = float('-inf')
-        self.global_energy_levels = []
+        self.min_firing_energy = 30.0
+        self.max_firing_energy = 70.0
         self.firing_events_history = []
         self.potential_history = []
         self.hubs = self.identify_hubs()
@@ -103,7 +102,6 @@ class Simulation:
                 firing_energy = updated_potential - neuron.resting_potential
                 self.min_firing_energy = min(self.min_firing_energy, firing_energy)
                 self.max_firing_energy = max(self.max_firing_energy, firing_energy)
-                self.global_energy_levels.append(firing_energy)
                 new_fired_neurons[idx] = True
                 fired_neurons.append(neuron)
                 new_potentials[idx] = neuron.resting_potential
@@ -145,7 +143,6 @@ class Simulation:
             "time_steps": self.time_steps,
             "min_firing_energy": self.min_firing_energy,
             "max_firing_energy": self.max_firing_energy,
-            "num_global_energy_levels": len(self.global_energy_levels),
             "num_distinct_hubs": len(self.hubs),
             "network_metrics": self.network_metrics
         }
@@ -220,7 +217,6 @@ def main():
         f"Total Time-Steps: {stats['time_steps']}",
         f"Min Firing Energy: {stats['min_firing_energy']:.4f}",
         f"Max Firing Energy: {stats['max_firing_energy']:.4f}",
-        f"Number of Global Energy Levels: {stats['num_global_energy_levels']}",
         f"Number of Distinct Hubs: {stats['num_distinct_hubs']}",
         f"Learning Rate: {args.learning_rate}",
         "\nNetwork Metrics:",
