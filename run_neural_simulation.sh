@@ -14,6 +14,7 @@ LEARNING_RULE="hebbian"
 INIT_POTENTIAL_MEAN=50
 INIT_POTENTIAL_STD=10
 LEARNING_RATE=0.01
+LEAK_RATE=0.95
 
 # Write parameters to file
 echo "Writing simulation parameters..."
@@ -25,6 +26,7 @@ LEARNING_RULE=$LEARNING_RULE
 INIT_POTENTIAL_MEAN=$INIT_POTENTIAL_MEAN
 INIT_POTENTIAL_STD=$INIT_POTENTIAL_STD
 LEARNING_RATE=$LEARNING_RATE
+LEAK_RATE=$LEAK_RATE
 EOF
 
 # Run simulation
@@ -37,6 +39,7 @@ python3 simulation.py \
     --init-mean $INIT_POTENTIAL_MEAN \
     --init-std $INIT_POTENTIAL_STD \
     --learning-rate $LEARNING_RATE \
+    --leak-rate $LEAK_RATE \
     --output-dir "$OUTPUT_DIR" \
     --stats-file "simulation_stats.txt"
 
