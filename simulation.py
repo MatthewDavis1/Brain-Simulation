@@ -209,45 +209,60 @@ class Simulation:
         return hubs
 
     def advance_time_step(self):
+        # Phase 1: Compute the new potentials and firing status without updating the neurons
+        fired_previous = [neuron.fired for neuron in self.neurons]
+        new_potentials = [neuron.potential for neuron in self.neurons]
+        new_fired_neurons = [False for _ in self.neurons]
+        new_refractory_counters = [neuron.refractory_counter for neuron in self.neurons]
         fired_neurons = []
-        for neuron in self.neurons:
+
+        for idx, neuron in enumerate(self.neurons):
+            if fired_previous[idx]:
+                # Neuron was firing in the previous step; handle refractory period
+                if neuron.refractory_counter > 0:
+                    new_refractory_counters[idx] -= 1
+                continue
+
             if neuron.refractory_counter > 0:
-                neuron.refractory_counter -= 1
+                new_refractory_counters[idx] -= 1
                 continue
 
             potential_diff = neuron.potential - neuron.resting_potential
-            neuron.potential = neuron.resting_potential + (potential_diff * neuron.leak_factor)
+            updated_potential = neuron.resting_potential + (potential_diff * neuron.leak_factor)
 
             input_current = 0
             for pre_id in self.network.graph.predecessors(neuron.id):
                 weight = self.network.graph[pre_id][neuron.id]['weight']
-                pre_neuron = self.neurons[pre_id]
-                if pre_neuron.fired:
-                    input_current += weight * 30.0
+                if fired_previous[pre_id]:
+                    pre_neuron = self.neurons[pre_id]
+                    input_current += weight * pre_neuron.firing_energy
 
             input_current += random.uniform(-5, 5)
-            
-            neuron.potential += input_current
-            
-            neuron.potential = max(neuron.min_potential, 
-                                 min(neuron.max_potential, neuron.potential))
-            
-            if neuron.potential >= neuron.threshold:
-                neuron.firing_energy = neuron.potential - neuron.resting_potential
-                self.min_firing_energy = min(self.min_firing_energy, neuron.firing_energy)
-                self.max_firing_energy = max(self.max_firing_energy, neuron.firing_energy)
-                self.global_energy_levels.append(neuron.firing_energy)
+            updated_potential += input_current
+            updated_potential = max(neuron.min_potential, min(neuron.max_potential, updated_potential))
+
+            new_potentials[idx] = updated_potential
+
+            if updated_potential >= neuron.threshold:
+                firing_energy = updated_potential - neuron.resting_potential
+                self.min_firing_energy = min(self.min_firing_energy, firing_energy)
+                self.max_firing_energy = max(self.max_firing_energy, firing_energy)
+                self.global_energy_levels.append(firing_energy)
+                new_fired_neurons[idx] = True
                 fired_neurons.append(neuron)
-                neuron.fired = True
-                neuron.reset_potential()
-            else:
-                neuron.fired = False
+                new_potentials[idx] = neuron.resting_potential
+                new_refractory_counters[idx] = neuron.refractory_period
+
+        # Phase 2: Update all neurons with the computed potentials and firing status
+        for idx, neuron in enumerate(self.neurons):
+            neuron.potential = new_potentials[idx]
+            neuron.fired = new_fired_neurons[idx]
+            neuron.refractory_counter = new_refractory_counters[idx]
 
         self.firing_events_history.append(len(fired_neurons))
         self.time_steps += 1
 
         self.apply_learning_rule(fired_neurons)
-        
         self.record_potentials()
 
     def apply_learning_rule(self, fired_neurons):
