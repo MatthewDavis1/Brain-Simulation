@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Output directory
-OUTPUT_DIR="examples/modular_5"
+OUTPUT_DIR="examples/small_world_1"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -9,16 +9,16 @@ mkdir -p "$OUTPUT_DIR"
 # Simulation parameters
 NUM_NEURONS=100
 TIMESTEPS=100
-CONNECTION_TYPE="modular"  # Options: random, small_world, modular
+CONNECTION_TYPE="small_world"  # Options: random, small_world, modular
 LEARNING_RULE="hebbian"
 INIT_POTENTIAL_MEAN=50
 INIT_POTENTIAL_STD=10
 LEARNING_RATE=0.5
-LEAK_RATE=0.95
+LEAK_RATE=0.1
 
 # New parameters for driving inputs
-NUM_DRIVERS=2
-DRIVER_POTENTIAL=10
+NUM_DRIVERS=3
+DRIVER_POTENTIAL=120
 
 # Write parameters to file
 echo "Writing simulation parameters..."

@@ -5,8 +5,8 @@ class Neuron:
         self.id = neuron_id
         self.potential = 0.0
         self.firing_energy = 0.0
-        self.threshold = 1.0
-        self.resting_potential = 0.0
+        self.threshold = 100.0
+        self.resting_potential = 0.1
         self.refractory_period = 2
         self.refractory_counter = 0
         self.leak_factor = leak_rate
@@ -18,14 +18,14 @@ class Neuron:
         self.fired = False
 
     def update(self, *args, **kwargs):
-        input_current = 0
+        input = 0
         for pre_id in self.network.graph.predecessors(self.id):
             weight = self.network.graph[pre_id][self.id]['weight']
             pre_neuron = self.neurons[pre_id]
-            input_current += weight * pre_neuron.firing_energy
+            input += weight * pre_neuron.firing_energy
 
-        input_current += random.uniform(0, 0.1)
-        self.potential += input_current
+        input += random.uniform(0, 0.1)
+        self.potential += input
 
         if self.potential >= self.threshold:
             self.firing_energy = self.potential

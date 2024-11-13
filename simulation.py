@@ -38,7 +38,6 @@ class Simulation:
         self.time_steps = 0
         self.min_firing_energy = 30.0
         self.max_firing_energy = 70.0
-        self.firing_events_history = []
         self.potential_history = []
         self.hubs = self.identify_hubs()
         self.network_metrics = self.network.get_network_metrics()
@@ -48,6 +47,7 @@ class Simulation:
         # Randomly select neurons to be drivers
         self.driver_neurons = random.sample(range(N), num_drivers) if num_drivers > 0 else []
         
+        self.firing_data = np.zeros((N, 0))
         self.record_potentials()
 
     def record_potentials(self):
@@ -113,7 +113,12 @@ class Simulation:
             neuron.fired = new_fired_neurons[idx]
             neuron.refractory_counter = new_refractory_counters[idx]
 
-        self.firing_events_history.append(len(fired_neurons))
+        # After updating neurons, record firing data
+        current_firing = np.zeros((len(self.neurons), 1))
+        for idx, neuron in enumerate(self.neurons):
+            current_firing[idx, 0] = 1 if neuron.fired else 0
+        self.firing_data = np.hstack((self.firing_data, current_firing))
+
         self.time_steps += 1
 
         self.apply_learning_rule(fired_neurons)
@@ -279,17 +284,8 @@ def main():
         
         # Raster plot subplot
         ax_raster = fig.add_subplot(gs[1])
-        firing_data = np.zeros((len(sim.neurons), len(sim.potential_history)))
-        
-        # Collect firing data
-        for t in range(len(sim.potential_history)):
-            for n in range(len(sim.neurons)):
-                # A neuron fired if its potential was reset to resting potential
-                if t > 0 and sim.potential_history[t][n] < sim.potential_history[t-1][n]:
-                    firing_data[n, t] = 1
-        
         scatter_raster = ax_raster.scatter([], [], c='black', s=1)
-        ax_raster.set_xlim(0, len(sim.potential_history))
+        ax_raster.set_xlim(0, args.timesteps)
         ax_raster.set_ylim(-1, len(sim.neurons))
         ax_raster.set_xlabel('Time Step')
         ax_raster.set_ylabel('Neuron ID')
@@ -304,9 +300,9 @@ def main():
             scatter.set_array(np.array(potentials))
             ax_network.set_title(f'Network State - Time Step: {frame}')
             
-            # Update raster plot
-            firing_times, firing_neurons = np.where(firing_data[:, :frame+1] == 1)
-            scatter_raster.set_offsets(np.column_stack((firing_neurons, firing_neurons)))
+            # Update raster plot using explicit firing data
+            firing_neurons, firing_times = np.where(sim.firing_data[:, :frame+1] == 1)
+            scatter_raster.set_offsets(np.column_stack((firing_times, firing_neurons)))
             
             return scatter, scatter_raster
 

@@ -3,6 +3,7 @@ import random
 import networkx as nx
 
 from learning_rules import LearningRuleType, HebbianLearning
+
 class ConnectionType(Enum):
     RANDOM = 1
     SMALL_WORLD = 2
